@@ -9,13 +9,19 @@ pub struct Database {
     path: String,
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum DatabaseError {
-    ColumnNotFound,
+    #[error("Column not found: {0}")]
+    ColumnNotFound(String),
+    #[error("Decode error")]
     DecodeError,
+    #[error("Encode error")]
     EncodeError,
+    #[error("History error")]
     HistoryError,
+    #[error("Iterator error")]
     IteratorError,
+    #[error("RocksDB error: {0}")]
     RocksDBError(rocksdb::Error),
 }
 
@@ -40,7 +46,10 @@ impl Database {
     }
 
     fn insert(&self, cf: &str, key: &[u8], value: &[u8]) -> Result<(), DatabaseError> {
-        let cf = self.db.cf_handle(cf).ok_or(DatabaseError::ColumnNotFound)?;
+        let cf = self
+            .db
+            .cf_handle(cf)
+            .ok_or(DatabaseError::ColumnNotFound(cf.to_string()))?;
 
         self.db
             .put_cf(cf, key, value)
@@ -48,7 +57,10 @@ impl Database {
     }
 
     fn get(&self, cf: &str, key: &[u8]) -> Result<Option<Vec<u8>>, DatabaseError> {
-        let cf = self.db.cf_handle(cf).ok_or(DatabaseError::ColumnNotFound)?;
+        let cf = self
+            .db
+            .cf_handle(cf)
+            .ok_or(DatabaseError::ColumnNotFound(cf.to_string()))?;
 
         self.db
             .get_cf(cf, key)
@@ -56,7 +68,10 @@ impl Database {
     }
 
     fn delete(&self, cf: &str, key: &[u8]) -> Result<(), DatabaseError> {
-        let cf = self.db.cf_handle(cf).ok_or(DatabaseError::ColumnNotFound)?;
+        let cf = self
+            .db
+            .cf_handle(cf)
+            .ok_or(DatabaseError::ColumnNotFound(cf.to_string()))?;
 
         self.db
             .delete_cf(cf, key)
@@ -64,7 +79,10 @@ impl Database {
     }
 
     fn iter(&self, cf: &str) -> Result<rocksdb::DBIterator, DatabaseError> {
-        let cf = self.db.cf_handle(cf).ok_or(DatabaseError::ColumnNotFound)?;
+        let cf = self
+            .db
+            .cf_handle(cf)
+            .ok_or(DatabaseError::ColumnNotFound(cf.to_string()))?;
 
         let mode = rocksdb::IteratorMode::Start;
 
@@ -271,7 +289,7 @@ impl Database {
         let cf_handle = self
             .db
             .cf_handle("key")
-            .ok_or(DatabaseError::ColumnNotFound)?;
+            .ok_or(DatabaseError::ColumnNotFound("key".to_string()))?;
         let iter = self.db.iterator_cf(cf_handle, rocksdb::IteratorMode::Start);
         for item in iter {
             let (key, encoded) = item.map_err(|_| DatabaseError::IteratorError)?;
@@ -292,7 +310,7 @@ impl Database {
         let cf_handle = self
             .db
             .cf_handle("contract")
-            .ok_or(DatabaseError::ColumnNotFound)?;
+            .ok_or(DatabaseError::ColumnNotFound("contract".to_string()))?;
         let iter = self.db.iterator_cf(cf_handle, rocksdb::IteratorMode::Start);
         for item in iter {
             let (key, encoded) = item.map_err(|_| DatabaseError::IteratorError)?;
